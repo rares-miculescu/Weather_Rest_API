@@ -83,14 +83,24 @@ def modify_country(id):
         return jsonify({'status':'wrong id'}), 400
     
     filter = {'_id': ObjectId(id)} 
-
     db['country'].update_one(filter, {'$set': {'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']}})
 
     return jsonify({'status':'ok'}), 200
 
-# @app.route('/api/countries/<int:numar>', methods = ["DELETE"])
-# def rm_country(numar):
-#     return jsonify({'status':'ok rm country'}), 200
+@app.route('/api/countries/<string:id>', methods = ["DELETE"])
+def rm_country(id):
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+    
+    filter = {'_id': ObjectId(id)}
+    db['country'].delete_one(filter)
+
+    return jsonify({'status':'ok'}), 200
 
 # @app.route('/api/cities', methods = ["POST"])
 # def add_city():
