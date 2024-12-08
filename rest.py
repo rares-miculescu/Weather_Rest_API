@@ -1,4 +1,5 @@
 import datetime
+from bson import ObjectId
 from flask import Flask
 from flask import request, jsonify, Response
 import json
@@ -41,16 +42,51 @@ def add_country():
     print(result.inserted_id)
     return jsonify({'id': str(result.inserted_id)}), 201
 
-# @app.route('/api/countries', methods = ["GET"])
-# def get_countries():
+@app.route('/api/countries', methods = ["GET"])
+def get_countries():
 
-#     collections = db.list_collection_names()
+    countries = []
+    for country in db['country'].find():
+        country['_id'] = str(country['_id'])
+        c = {"id":str(country['_id']),
+            "nume":country['nume'],
+            "lat":country['lat'],
+            "lon":country['lon']}
+        countries.append(c)
+    return countries, 200
 
-#     return jsonify({'status':collections}), 200
+@app.route('/api/countries/<string:id>', methods = ["PUT"])
+def modify_country(id):
 
-# @app.route('/api/countries/<int:numar>', methods = ["PUT"])
-# def modify_country(numar):
-#     return jsonify({'status':'ok modify country'}), 200
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+
+    payload = request.get_json(silent=True)    
+    if len(payload) != 4:
+        return jsonify({'status':'wrong number of arguments'}), 400
+    if ('id' not in payload or
+        'nume' not in payload or
+        'lat' not in payload or
+        'lon' not in payload):
+        return jsonify({'status':'wrong arguments'}), 400
+    if (not isinstance(payload['id'], str) or
+        not isinstance(payload['nume'], str) or
+        not isinstance(payload['lat'], float) or
+        not isinstance(payload['lon'], float)):
+        return jsonify({'status':'wrong types'}), 400
+    if str(payload['id']) != id:
+        return jsonify({'status':'wrong id'}), 400
+    
+    filter = {'_id': ObjectId(id)} 
+
+    db['country'].update_one(filter, {'$set': {'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']}})
+
+    return jsonify({'status':'ok'}), 200
 
 # @app.route('/api/countries/<int:numar>', methods = ["DELETE"])
 # def rm_country(numar):
