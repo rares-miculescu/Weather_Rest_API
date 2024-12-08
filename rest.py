@@ -14,8 +14,8 @@ uri = "mongodb://root:toor@localhost:27017/"
 client = MongoClient(uri)
 db = client['tema2']
 
-def verify_duplicate_country(name):
-    country = db['country'].find_one({'nume': name})
+def verify_duplicate(name, collection):
+    country = db[collection].find_one({'nume': name})
     if country is not None:
         return True
     return False
@@ -34,7 +34,7 @@ def add_country():
         not isinstance(payload['lon'], float)):
         return jsonify({'status':'wrong types'}), 400
     
-    if verify_duplicate_country(payload['nume']):
+    if verify_duplicate(payload['nume'], "country"):
         return jsonify({'status':'duplicate country'}), 409
 
     result = db['country'].insert_one({'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']})
