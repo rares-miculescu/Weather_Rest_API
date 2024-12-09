@@ -134,9 +134,18 @@ def add_city():
     result = db['city'].insert_one({'idTara': id, 'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']})
     return jsonify({'id':str(result.inserted_id)}), 201
 
-# @app.route('/api/cities', methods = ["GET"])
-# def get_cities():
-#     return jsonify({'status':'ok get cities'}), 200
+@app.route('/api/cities', methods = ["GET"])
+def get_cities():
+
+    cities = []
+    for city in db['city'].find():
+        city['_id'] = str(city['_id'])
+        c = {"id":str(city['_id']),
+            "nume":city['nume'],
+            "lat":city['lat'],
+            "lon":city['lon']}
+        cities.append(c)
+    return cities, 200
 
 # @app.route('/api/cities/country/<int:id>', methods = ["GET"])
 # def get_cities_country(id):
