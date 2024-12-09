@@ -31,15 +31,14 @@ def add_country():
         'lon' not in payload):
         return jsonify({'status':'wrong arguments'}), 400
     if (not isinstance(payload['nume'], str) or
-        not isinstance(payload['lat'], float) or
-        not isinstance(payload['lon'], float)):
+        not (isinstance(payload['lat'], float) or isinstance(payload['lat'], int)) or
+        not (isinstance(payload['lon'], int) or isinstance(payload['lon'], float))):
         return jsonify({'status':'wrong types'}), 400
     
     if verify_duplicate(payload['nume'], "country"):
         return jsonify({'status':'duplicate country'}), 409
 
     result = db['country'].insert_one({'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']})
-    print(result.inserted_id)
     return jsonify({'id': str(result.inserted_id)}), 201
 
 @app.route('/api/countries', methods = ["GET"])
@@ -76,8 +75,8 @@ def modify_country(id):
         return jsonify({'status':'wrong arguments'}), 400
     if (not isinstance(payload['id'], str) or
         not isinstance(payload['nume'], str) or
-        not isinstance(payload['lat'], float) or
-        not isinstance(payload['lon'], float)):
+        not (isinstance(payload['lat'], float) or isinstance(payload['lat'], int)) or
+        not (isinstance(payload['lon'], int) or isinstance(payload['lon'], float))):
         return jsonify({'status':'wrong types'}), 400
     if str(payload['id']) != id:
         return jsonify({'status':'wrong id'}), 400
@@ -102,9 +101,38 @@ def rm_country(id):
 
     return jsonify({'status':'ok'}), 200
 
-# @app.route('/api/cities', methods = ["POST"])
-# def add_city():
-#     return jsonify({'status':'ok add city'}), 200
+@app.route('/api/cities', methods = ["POST"])
+def add_city():
+
+    # {idTara: Int, nume: Str, lat: Double, lon: Double}
+    payload = request.get_json(silent=True)
+
+    if len(payload) != 4:
+        return jsonify({'status':'wrong number of arguments'}), 400
+    if ('idTara' not in payload or
+        'nume' not in payload or
+        'lat' not in payload or
+        'lon' not in payload):
+        return jsonify({'status':'wrong arguments'}), 400
+    if (not isinstance(payload['nume'], str) or
+        not (isinstance(payload['lat'], float) or isinstance(payload['lat'], int)) or
+        not (isinstance(payload['lon'], int) or isinstance(payload['lon'], float))):
+        return jsonify({'status':'wrong types'}), 400
+
+    id = payload['idTara']
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+
+    if verify_duplicate(payload['nume'], "city"):
+        return jsonify({'status':'duplicate city'}), 409
+
+    result = db['city'].insert_one({'idTara': id, 'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']})
+    return jsonify({'id':str(result.inserted_id)}), 201
 
 # @app.route('/api/cities', methods = ["GET"])
 # def get_cities():
@@ -163,13 +191,14 @@ def init_db():
     country_collection = db['country']
     country_collection.create_index([('id', ASCENDING)], unique=False)
     
-    # if 'city' not in collections:
-    #     db.create_collection('city')
+    if 'city' not in collections:
+        db.create_collection('city')
+    city_collection = db['city']
+    city_collection.create_index([('id', ASCENDING)], unique=False)
+
     # if 'temperature' not in collections:
     #     db.create_collection('temperature')
     
-    # city_collection = db['city']
-    # city_collection.create_index([('id', ASCENDING)], unique=True)
     # temperature_collection = db['temperature']
     # temperature_collection.create_index([('id', ASCENDING)], unique=True)
 
