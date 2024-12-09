@@ -171,9 +171,45 @@ def get_cities_country(id):
             cities.append(c)
     return cities, 200
 
-# @app.route('/api/cities/<int:id>', methods = ["PUT"])
-# def change_city():
-#     return jsonify({'status':'ok change city'}), 200
+@app.route('/api/cities/<string:id>', methods = ["PUT"])
+def change_city(id):
+
+    ok = False
+    for city in db['city'].find():
+        if str(city['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'city not found'}), 404
+    
+    payload = request.get_json(silent=True)    
+    if len(payload) != 5:
+        return jsonify({'status':'wrong number of arguments'}), 400
+    if ('id' not in payload or
+        'idTara' not in payload or
+        'nume' not in payload or
+        'lat' not in payload or
+        'lon' not in payload):
+        return jsonify({'status':'wrong arguments'}), 400
+    if (not isinstance(payload['nume'], str) or
+        not (isinstance(payload['lat'], float) or isinstance(payload['lat'], int)) or
+        not (isinstance(payload['lon'], int) or isinstance(payload['lon'], float))):
+        return jsonify({'status':'wrong types'}), 400
+    if str(payload['id']) != id:
+        return jsonify({'status':'wrong id'}), 400
+    
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == payload['idTara']:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+
+    filter = {'_id': ObjectId(id)} 
+    db['city'].update_one(filter, {'$set': {'idTara':payload['idTara'], 'nume': payload['nume'], 'lat': payload['lat'], 'lon': payload['lon']}})
+
+    return jsonify({'status':'ok'}), 200
 
 # @app.route('/api/cities/<int:id>', methods = ["DELETE"])
 # def rm_city():
