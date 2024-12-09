@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime, time
+from time import mktime as mktime
 from bson import ObjectId
 from flask import Flask
 from flask import request, jsonify, Response
@@ -9,7 +10,7 @@ import os
 
 app = Flask(__name__)
 
-uri = "mongodb://root:toor@localhost:27017/"
+uri = "mongodb://root:toor@mongo:27017/"
 client = MongoClient(uri)
 db = client['tema2']
 
@@ -246,52 +247,174 @@ def add_temp():
     if not ok:
         return jsonify({'status':'city not found'}), 404
     
-    timestamp = datetime.datetime.now()
+    timestamp = datetime.now()
     result = db['temperature'].insert_one({"idOras": payload['idOras'], "valoare": payload['valoare'], "timestamp": timestamp})
     return jsonify({'id': str(result.inserted_id)}), 201
 
-# def get_all_temps():
-#     temperatures = []
-#     for temp in db['temperature'].find():
-#         temp['_id'] = str(temp['_id'])
-#         t = {"id":str(temp['_id']),
-#             "idOras":str(temp['idOras']),
-#             "valoare":temp['valoare'],
-#             "timestamp":temp['timestamp']}
-#         temperatures.append(t)
-#     return temperatures
+def get_all_temps():
+    temperatures = []
+    for temp in db['temperature'].find():
+        temp['_id'] = str(temp['_id'])
+        t = {"id":str(temp['_id']),
+            "idOras":str(temp['idOras']),
+            "valoare":temp['valoare'],
+            "timestamp":temp['timestamp']}
+        temperatures.append(t)
+    return temperatures
 
-# def get_temp(type: str, lat: float, lon: float, date_from: datetime, date_until: datetime):
+def get_temp(type: str = None, 
+            lat: float = None,
+            lon: float = None,
+            date_from: datetime = None,
+            date_until: datetime = None,
+            id: str = None):
     
-#     if type is None:
-            
+    temperatures = get_all_temps()
 
+    if lon is not None:
+        new_temps = []
+        for temp in temperatures:
+            lon_city = db['city'].find_one({'_id': ObjectId(temp['idOras'])})['lon']
+            if lon_city == lon:
+                new_temps.append(temp)
+        temperatures = new_temps
+    if lat is not None:
+        new_temps = []
+        for temp in temperatures:
+            lat_city = db['city'].find_one({'_id': ObjectId(temp['idOras'])})['lat']
+            if lat_city == lat:
+                new_temps.append(temp)
+        temperatures = new_temps
+    if date_from is not None:
+        new_temps = []
+        for temp in temperatures:
+            if temp['timestamp'] >= date_from:
+                new_temps.append(temp)
+        temperatures = new_temps
+    if date_until is not None:
+        new_temps = []
+        for temp in temperatures:
+            if temp['timestamp'] <= date_until:
+                new_temps.append(temp)
+        temperatures = new_temps
+
+    cities_ids = []
+
+    if type == 'city':
+        cities_ids.append(id)
         
+    if type == 'country':
+        for temp in temperatures:
+            idOras = temp['idOras']
+            city = db['city'].find_one({'_id': ObjectId(idOras)})
+            cities_ids.append(str(city['_id']))
 
-# @app.route('/api/temperatures', methods = ["GET"])
-# def get_precise_temp():
-#     lat = request.args.get('lat', type=float)
-#     lon = request.args.get('lon', type=float)
-#     date_from = request.args.get('from', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
-#     date_until = request.args.get('until', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
+    print(cities_ids)
+
+
+    if cities_ids != []:
+        new_temps = []
+        for temp in temperatures:
+            if temp['idOras'] in cities_ids:
+                new_temps.append(temp)
+        temperatures = new_temps
+
+    new_temps = []
+    for temp in temperatures:
+        t = {"id":temp['id'],
+            "valoare":temp['valoare'],
+            "timestamp":temp['timestamp']}
+        new_temps.append(t)
     
+    return new_temps
+
+@app.route('/api/temperatures', methods = ["GET"])
+def get_precise_temp():
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)    
+    date_from = request.args.get('from')
+    if date_from is not None:
+        try:
+            date_time_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_from = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+    date_until = request.args.get('until')
+    if date_until is not None:
+        try:
+            date_time_obj = datetime.strptime(date_until, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_until = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+
+    temps = get_temp(lat=lat, lon=lon, date_from=date_from, date_until=date_until)
     
-#     res = get_temp(None, lat, lon, date_from, date_until)
-#     if res == 0:
-#         return jsonify({'status':'no data'}), 404
-#     return jsonify({'status':'ok get precise temp'}), 200
+    return temps, 200
 
-# @app.route('/api/temperatures/<int:id>', methods = ["GET"])
-# def get_city_temp_interval(id):
-#     date_from = request.args.get('from', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
-#     date_until = request.args.get('until', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
-#     return jsonify({'status':'ok get city interval temp'}), 200
+@app.route('/api/temperatures/cities/<id>', methods = ["GET"])
+def get_city_temp_interval(id):
+    
+    ok = False
+    for city in db['city'].find():
+        if str(city['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'city not found'}), 404
 
-# @app.route('/api/temperatures/countries/<int:id>', methods = ["GET"])
-# def get_country_temp_interval(id):
-#     date_from = request.args.get('from', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
-#     date_until = request.args.get('until', type=lambda d: datetime.strptime(d, '%Y-%m-%d'))
-#     return jsonify({'status':'ok get country interval temp'}), 200
+    date_from = request.args.get('from')
+    if date_from is not None:
+        try:
+            date_time_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_from = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+    date_until = request.args.get('until')
+    if date_until is not None:
+        try:
+            date_time_obj = datetime.strptime(date_until, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_until = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+        
+    temps = get_temp(type='city', date_from=date_from, date_until=date_until, id=id)
+
+    return temps, 200
+
+@app.route('/api/temperatures/countries/<id>', methods = ["GET"])
+def get_country_temp_interval(id):
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+
+    date_from = request.args.get('from')
+    if date_from is not None:
+        try:
+            date_time_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_from = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+    date_until = request.args.get('until')
+    if date_until is not None:
+        try:
+            date_time_obj = datetime.strptime(date_until, '%Y-%m-%d')
+            timestamp = int(mktime(date_time_obj.timetuple()))
+            date_until = datetime.fromtimestamp(timestamp)
+        except ValueError:
+            return "Invalid date format. Please use YYYY-MM-DD format.", 400
+        
+    temps = get_temp(type='country', date_from=date_from, date_until=date_until, id=id)
+
+    return temps, 200
 
 @app.route('/api/temperatures/<id>', methods = ["PUT"])
 def change_temp(id):
@@ -345,8 +468,6 @@ def delete_temp(id):
     db['city'].delete_one(filter)
 
     return jsonify({'status':'ok'}), 200
-
-
 
 def init_db():
 
