@@ -141,15 +141,35 @@ def get_cities():
     for city in db['city'].find():
         city['_id'] = str(city['_id'])
         c = {"id":str(city['_id']),
+            "idTara":str(city['idTara']),
             "nume":city['nume'],
             "lat":city['lat'],
             "lon":city['lon']}
         cities.append(c)
     return cities, 200
 
-# @app.route('/api/cities/country/<int:id>', methods = ["GET"])
-# def get_cities_country(id):
-#     return jsonify({'status':'ok get cities country'}), 200
+@app.route('/api/cities/country/<string:id>', methods = ["GET"])
+def get_cities_country(id):
+
+    ok = False
+    for country in db['country'].find():
+        if str(country['_id']) == id:
+            ok = True
+            break
+    if not ok:
+        return jsonify({'status':'country not found'}), 404
+    
+    cities = []
+    for city in db['city'].find():
+        if str(city['idTara']) == id:
+            city['_id'] = str(city['_id'])
+            c = {"id":str(city['_id']),
+                "idTara":str(city['idTara']),
+                "nume":city['nume'],
+                "lat":city['lat'],
+                "lon":city['lon']}
+            cities.append(c)
+    return cities, 200
 
 # @app.route('/api/cities/<int:id>', methods = ["PUT"])
 # def change_city():
