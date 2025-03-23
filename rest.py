@@ -454,7 +454,7 @@ def delete_temp(id):
         return jsonify({'status':'temperature not found'}), 404
     
     filter = {'_id': ObjectId(id)}
-    db['city'].delete_one(filter)
+    db['temperature'].delete_one(filter)
 
     return jsonify({'status':'ok'}), 200
 
